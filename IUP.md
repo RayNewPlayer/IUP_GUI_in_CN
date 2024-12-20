@@ -286,7 +286,7 @@ if (iup.MainLoopLevel()==0) then
 end
 ```
 
-~[hello world 4](https://iup.sourceforge.net/en/tutorial/example2_4.png)
+![hello world 4](https://iup.sourceforge.net/en/tutorial/example2_4.png)
 
 注意到，这里有一个新的**标签**声明，并且这个新元素是vbox内部最上面的元素。这意味着它将被显示在**按钮(button)**的上方。现在，我们的例子拥有了两个不同的元素，并且一个被布置在另一个的上方。通过改变上述的代码，使用hbox，可以看到有趣的变化。
 
