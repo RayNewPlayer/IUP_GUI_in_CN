@@ -137,8 +137,7 @@ end
 
 从最简单的Hello world程序到最复杂的IUP应用，都会包含这相同的代码结构。
 
-
-
+在Lua中，我们在引入iuplua包之后立即创建控件。Lua中控件的构造形式与其它语言不同，构造函数的名称全部为小写，并且其参数位于一个表（table）中。虽然你可以使用，但在Lua中没有必要使用**iup.SetAttribute**。在Lua中，一个控件也是一个表，其中的字段是控件的属性和回调函数。在示例中，所有属性都是在创建控件时定义的，但我们也可以在调用构造函数后进行label.title或dlg.title的设置。在Lua中，一些函数也有语法糖(syntax sugar)，因此我们可以使用"dlg::showxy(iup.CENTER,iup.CENTER)"代替"iup.ShowXY(dlg, iup.CENTER,iup.CENTER)"，但两者实际上是完全相同的调用。
 
 ### 2.3 Adding Interaction 增加交互
 在前面的部分，我们看到了如何去创建一个IUP应用，但是没有任何与对话框的交互。在这一部分，我们将增加一个按钮(button)以增加交互。
@@ -216,12 +215,95 @@ end
 
 执行时，应用程序的对话框将显示出来，当用户按下按钮时，它会显示一个问候消息并关闭应用程序。看起来不是什么大事，但通过这个小代码样本，我们已经涵盖了创建IUP应用程序、声明元素和回调以及处理事件的过程。从现在开始，我们将看到更多的IUP控件以及如何使用不同类型的控件来改进我们的应用程序。
 
-在Lua中，我们设置按钮动作回调就像设置一个属性一样。因此，没有调用IupSetCallback。
-
+在Lua中，我们设置按钮动作回调就像设置一个属性一样。因此，没有调用**IupSetCallback**。
 
 ### 2.4 Adding Layout Elements 增加布局元素
+直到现在，我们只是将控件定位在一个垂直框（vbox）中，正如之前提到的，它将所有控件垂直对齐。这只是IUP布局概念的一个小样本。IUP实现了一个抽象布局，其中控件的定位是相对的，而不是绝对的。因此，需要组合元素来组合界面元素。它们是用户看不见的盒子和填充物，但它们扮演着重要的角色。当对话框大小改变时，这些容器会扩展或收缩，以调整控件的位置以适应新的情况，允许对话框即使在屏幕分辨率变化时也能适应。例如，如果您将应用程序移植到分辨率较低的另一个系统，这将非常有用。主要的组合元素包括垂直盒子（vbox）、水平盒子（hbox）和填充（fill），等等。还有一个深度盒子（zbox），在同一个对话框中可以创建元素层，并且只有在给定层处于活动状态时，该层中的元素才可见。
+
+为了阐明抽象布局的工作原理，让我们修改我们的例子，给它添加一个标签。
+
+in C
+```C
+#include <stdlib.h>
+#include <iup.h>
+
+int btn_exit_cb( Ihandle *self )
+{
+  /* Exits the main loop */
+  return IUP_CLOSE;
+}
+
+int main(int argc, char **argv)
+{
+  Ihandle *dlg, *button, *label, *vbox;
+
+  IupOpen(&argc, &argv);
+  
+  label =  IupLabel("Hello world from IUP.");
+  button = IupButton("OK", NULL);
+  vbox = IupVbox(
+    label,
+    button,
+    NULL);
+  dlg = IupDialog(vbox);
+  IupSetAttribute(dlg, "TITLE", "Hello World 4");
+
+  /* Registers callbacks */
+  IupSetCallback(button, "ACTION", (Icallback) btn_exit_cb);
+
+  IupShowXY(dlg, IUP_CENTER, IUP_CENTER);
+
+  IupMainLoop();
+
+  IupClose();
+  return EXIT_SUCCESS;
+}
+```
+in Lua
+```Lua
+require("iuplua")
+
+label = iup.label{title = "Hello world from IUP."}
+button = iup.button{title = "OK"}
+
+function button:action()
+  -- Exits the main loop
+  return iup.CLOSE  
+end
+
+vbox = iup.vbox{label,button}
+dlg = iup.dialog{
+  vbox,
+  title = "Hello World 4"
+}
+
+dlg:showxy(iup.CENTER,iup.CENTER)
+
+-- to be able to run this script inside another context
+if (iup.MainLoopLevel()==0) then
+  iup.MainLoop()
+  iup.Close()
+end
+```
+
+~[hello world 4](https://iup.sourceforge.net/en/tutorial/example2_4.png)
+
+注意到，这里有一个新的**标签**声明，并且这个新元素是vbox内部最上面的元素。这意味着它将被显示在**按钮(button)**的上方。现在，我们的例子拥有了两个不同的元素，并且一个被布置在另一个的上方。通过改变上述的代码，使用hbox，可以看到有趣的变化。
+
+在Lua中，我们使用了一种更简单的方式去关联回调函数，使用了Lua的语法糖“button:exit_cb()”。但是要使用这种语法，按钮元素必须在回调声明之前存在，因此我们也将其代码移动到了按钮构造之后。
 
 ### 2.5 Improving the Layout 提高布局
+现在，我们已经理解了抽象布局的基础知识，那么可以看一下vbox和hbox都具备的三个属性，它们是：对齐方式(ALIGNMENT), 间隙(GAP) and 外边距(MARGIN)。
+
+对齐方式(ALIGNMENT)定义了在框体(box)中元素的垂直或水平的对齐方式。如果使用了一个vbox，那么它将是水平对齐；如果使用了一个hbox，它将是垂直对齐。水平对齐的值可以是 "ALEFT", "ACENTER" 或 "ARIGHT" ，垂直对齐的值可以是"ATOP", "ACENTER" 或 "ABOTTOM"。默认值是 "ALEFT"和"ATOP"。
+
+间隙(GAP)以像素为单位定义了box中每个元素间的间隙。如果使用了一个vbox，那么它将是垂直空隙；如果是hbox，将是水平空隙。间隙(GAP)的默认值为0，意味着元素间没有空隙。
+
+外边距(MARGIN)以像素为单位定义，格式为"宽x高"，宽和高分别对应着水平和垂直间距。默认值为"0x0"，意味着没有间距。
+
+我们看一下我们的布局是如何响应这三个属性的。
+
+可以注意到，我们例子的Lua版本只有一些微小的变化。我们只是添加了一行用于创建标签的代码，并将其插入到vbox中稍后的位置。
 
 in C
 ```C
@@ -298,6 +380,7 @@ end
 ```
 ![hello world 5](https://iup.sourceforge.net/en/tutorial/example2_5.png)
 
+在创建了vbox之后，我们添加了三行代码来设置这些属性为不同于默认值的值。结果看起来更加舒适。尽管它仍然不完全像第一个例子。你能想出我们需要设置哪些属性以获得更接近的外观吗？
 
 ![hello world 5a](https://iup.sourceforge.net/en/tutorial/example2_5a.png)
 ## 3.Simple Notepad
